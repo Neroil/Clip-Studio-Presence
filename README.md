@@ -26,7 +26,7 @@ icon_3
 Discord may take a few minutes to make new art assets available in Rich Presence.
 
 The **Capture & Share** button does not need Discord portal setup. It screenshots the Clip Studio
-Paint window, uploads the image, and updates the Rich Presence button URL at runtime.
+Paint window, uploads the image to Uguu, and updates the Rich Presence button URL at runtime.
 
 The app settings can customize the Rich Presence activity label, details text, state text, large and
 small image keys, image hover text, timestamp mode, party size, and up to two buttons. If **Show

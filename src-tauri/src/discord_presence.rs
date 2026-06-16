@@ -1,7 +1,8 @@
 use crate::{
     app_config::{
         DEFAULT_ACTIVITY_TYPE, DEFAULT_ICON_KEY, DEFAULT_ICON_TEXT, DEFAULT_IDLE_MESSAGE,
-        DEFAULT_PRESENCE_MESSAGE, DEFAULT_RPC_NAME, DEFAULT_STATE_TEXT, DISCORD_CLIENT_ID,
+        DEFAULT_PRESENCE_MESSAGE, DEFAULT_RPC_NAME, DEFAULT_SHARE_BUTTON_LABEL,
+        DEFAULT_STATE_TEXT, DISCORD_CLIENT_ID,
     },
     app_state::Settings,
     clip_studio::ClipStudioDetection,
@@ -47,6 +48,7 @@ impl PresenceClient {
         settings: &Settings,
         detection: &ClipStudioDetection,
         procrastination_percent: Option<u8>,
+        shared_screenshot_url: Option<&str>,
     ) -> PresenceState {
         if !detection.running {
             self.active_since = None;
@@ -77,7 +79,12 @@ impl PresenceClient {
             self.active_since = Some(now_unix());
         }
 
-        let activity = self.activity(settings, detection, procrastination_percent);
+        let activity = self.activity(
+            settings,
+            detection,
+            procrastination_percent,
+            shared_screenshot_url,
+        );
 
         match self
             .client
@@ -119,6 +126,7 @@ impl PresenceClient {
         settings: &Settings,
         detection: &ClipStudioDetection,
         procrastination_percent: Option<u8>,
+        shared_screenshot_url: Option<&str>,
     ) -> Value {
         let mut activity = Map::new();
 
@@ -186,7 +194,7 @@ impl PresenceClient {
             }
         }
 
-        if let Some(buttons) = buttons(settings) {
+        if let Some(buttons) = buttons(settings, shared_screenshot_url) {
             activity.insert("buttons".to_string(), buttons);
         }
 
@@ -380,19 +388,28 @@ fn assets(settings: &Settings) -> Option<Value> {
     }
 }
 
-fn buttons(settings: &Settings) -> Option<Value> {
+fn buttons(settings: &Settings, shared_screenshot_url: Option<&str>) -> Option<Value> {
     let mut buttons = Vec::with_capacity(2);
 
-    push_button(
-        &mut buttons,
-        &settings.button_1_label,
-        &settings.button_1_url,
-    );
-    push_button(
-        &mut buttons,
-        &settings.button_2_label,
-        &settings.button_2_url,
-    );
+    if let Some(url) = shared_screenshot_url {
+        push_button(&mut buttons, DEFAULT_SHARE_BUTTON_LABEL, url);
+        push_button(
+            &mut buttons,
+            &settings.button_2_label,
+            &settings.button_2_url,
+        );
+    } else {
+        push_button(
+            &mut buttons,
+            &settings.button_1_label,
+            &settings.button_1_url,
+        );
+        push_button(
+            &mut buttons,
+            &settings.button_2_label,
+            &settings.button_2_url,
+        );
+    }
 
     if buttons.is_empty() {
         None

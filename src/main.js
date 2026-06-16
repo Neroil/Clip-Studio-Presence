@@ -213,12 +213,30 @@ function renderSharedScreenshot(url) {
   statusNodes.sharedScreenshot.append(link);
 }
 
+function errorMessage(error) {
+  if (error instanceof Error) {
+    return error.message || String(error);
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return String(error);
+}
+
+function showError(error) {
+  const message = `Capture & Share failed: ${errorMessage(error)}`;
+  statusNodes.message.textContent = message;
+  window.alert(message);
+}
+
 async function refreshStatus() {
   try {
     const status = await invoke("get_status");
     renderStatus(status);
   } catch (error) {
-    statusNodes.message.textContent = String(error);
+    showError(error);
     statusNodes.pill.textContent = "Error";
     statusNodes.pill.className = "pill warn";
   }
@@ -235,7 +253,7 @@ async function captureAndShare() {
     statusNodes.message.textContent =
       "Shared screenshot updated. Discord will refresh the button shortly.";
   } catch (error) {
-    statusNodes.message.textContent = String(error);
+    showError(error);
   } finally {
     captureButton.disabled = false;
     captureButton.textContent = "Capture & Share";

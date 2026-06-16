@@ -3,6 +3,7 @@ pub const DEFAULT_BUTTON_1_LABEL: &str = "";
 pub const DEFAULT_BUTTON_1_URL: &str = "";
 pub const DEFAULT_BUTTON_2_LABEL: &str = "";
 pub const DEFAULT_BUTTON_2_URL: &str = "";
+pub const DEFAULT_SHARE_BUTTON_LABEL: &str = "See what I'm working on";
 pub const DEFAULT_CUSTOM_TIMESTAMP_END: i64 = 0;
 pub const DEFAULT_CUSTOM_TIMESTAMP_START: i64 = 0;
 pub const DEFAULT_ICON_KEY: &str = "icon_1";

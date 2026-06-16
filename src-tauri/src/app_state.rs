@@ -230,6 +230,10 @@ impl AppState {
                     let inner = state.inner.lock().expect("app state lock poisoned");
                     inner.settings.clone()
                 };
+                let shared_screenshot_url = {
+                    let inner = state.inner.lock().expect("app state lock poisoned");
+                    inner.shared_screenshot_url.clone()
+                };
 
                 let mut detection = detect_clip_studio();
                 let procrastination_percent = {
@@ -244,7 +248,12 @@ impl AppState {
                     inner.focus_stats.update(&detection);
                     inner.focus_stats.procrastination_percent()
                 };
-                let presence_state = presence.sync(&settings, &detection, procrastination_percent);
+                let presence_state = presence.sync(
+                    &settings,
+                    &detection,
+                    procrastination_percent,
+                    shared_screenshot_url.as_deref(),
+                );
 
                 {
                     let mut inner = state.inner.lock().expect("app state lock poisoned");

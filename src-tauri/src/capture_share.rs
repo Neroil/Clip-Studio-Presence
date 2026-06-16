@@ -5,6 +5,7 @@ use std::{
 };
 
 use reqwest::blocking::{multipart, Client};
+use reqwest::header::USER_AGENT;
 use tauri::{AppHandle, Manager};
 
 pub struct ShareResult {
@@ -24,31 +25,94 @@ pub fn capture_and_upload(app: &AppHandle) -> Result<ShareResult, CaptureShareEr
     }
     std::fs::write(&saved_path, &png)?;
 
-    let url = upload_to_catbox(png)?;
+    let url = upload_screenshot(png)?;
     Ok(ShareResult { url })
 }
 
-fn upload_to_catbox(png: Vec<u8>) -> Result<String, CaptureShareError> {
+fn upload_screenshot(png: Vec<u8>) -> Result<String, CaptureShareError> {
+    upload_to_uguu(png)
+}
+
+fn upload_to_uguu(png: Vec<u8>) -> Result<String, CaptureShareError> {
     let part = multipart::Part::bytes(png)
         .file_name("clip-studio-presence.png")
         .mime_str("image/png")?;
-    let form = multipart::Form::new()
-        .text("reqtype", "fileupload")
-        .part("fileToUpload", part);
+    let form = multipart::Form::new().part("files[]", part);
 
-    let response = Client::new()
-        .post("https://catbox.moe/user/api.php")
+    let client = Client::builder()
+        .user_agent("ClipStudioPresence/0.1")
+        .http1_only()
+        .build()?;
+
+    let response = client
+        .post("https://uguu.se/upload?output=text")
         .multipart(form)
-        .send()?
-        .error_for_status()?
-        .text()?;
+        .header(USER_AGENT, "ClipStudioPresence/0.1")
+        .send()
+        .map_err(|source| CaptureShareError::UploadRequest {
+            message: upload_request_message("Uguu", &source),
+        })?;
 
-    let url = response.trim().to_string();
-    if url.starts_with("https://") || url.starts_with("http://") {
-        Ok(url)
+    let status = response.status();
+    let body = response
+        .text()
+        .map_err(|source| CaptureShareError::UploadResponseBody {
+            status,
+            message: upload_response_body_message("Uguu", status, &source),
+        })?;
+
+    if status.is_success() {
+        let url = body.trim().to_string();
+        if url.starts_with("https://") || url.starts_with("http://") {
+            Ok(url)
+        } else {
+            Err(CaptureShareError::UploadRejected(format!(
+                "Uguu replied with HTTP {status}, but the body was not a direct URL. Body text: {url}"
+            )))
+        }
     } else {
-        Err(CaptureShareError::UploadRejected(url))
+        Err(CaptureShareError::UploadFailed { status, body })
     }
+}
+
+fn upload_request_message(host: &str, error: &reqwest::Error) -> String {
+    if error.is_timeout() {
+        return format!(
+            "The request timed out before {host} answered. The network may be slow or the host may be blocked."
+        );
+    }
+
+    if error.is_connect() {
+        return format!(
+            "The app could not connect to {host}. This is usually a network, DNS, proxy, or TLS problem. Details: {error}"
+        );
+    }
+
+    if error.is_body() {
+        return format!(
+            "The request was created, but the upload body could not be sent cleanly to {host}. This usually means the connection was closed while the file was being uploaded. Details: {error}"
+        );
+    }
+
+    format!("The upload request failed before {host} could answer. Details: {error}")
+}
+
+fn upload_response_body_message(host: &str, status: reqwest::StatusCode, error: &reqwest::Error) -> String {
+    if error.is_timeout() {
+        return format!(
+            "{host} returned HTTP {status}, but the response body timed out before it could be read."
+        );
+    }
+
+    if error.is_body() {
+        return format!(
+            "{host} returned HTTP {status}, but the response body could not be read. This usually means the server closed the connection early. Details: {error}"
+        );
+    }
+
+    format!(
+        "{host} returned HTTP {status}, but reading the response body failed. Details: {error}"
+    )
 }
 
 #[cfg(windows)]
@@ -73,10 +137,24 @@ pub enum CaptureShareError {
     Encode(#[from] png::EncodingError),
     #[error("Could not upload the screenshot: {0}")]
     Upload(#[from] reqwest::Error),
+    #[error("Could not send the upload request to 0x0.st: {message}")]
+    UploadRequest {
+        message: String,
+    },
+    #[error("Uguu returned HTTP {status}, but reading the response body failed: {message}")]
+    UploadResponseBody {
+        status: reqwest::StatusCode,
+        message: String,
+    },
     #[error("Could not create the upload file part: {0}")]
     Mime(#[from] reqwest::header::InvalidHeaderValue),
     #[error("The image host rejected the upload: {0}")]
     UploadRejected(String),
+    #[error("Uguu returned HTTP {status} with body: {body}")]
+    UploadFailed {
+        status: reqwest::StatusCode,
+        body: String,
+    },
     #[error("Could not access the app cache directory.")]
     AppCacheDir,
     #[error("Could not save the local screenshot: {0}")]
