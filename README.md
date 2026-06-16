@@ -16,5 +16,6 @@ Run the app:
 npm run tauri dev
 ```
 
-You need a Discord Developer Application client ID for Rich Presence. Upload an image asset named
-`clip_studio_paint` or change the asset key in the app settings.
+The app uses the bundled Discord application ID for Rich Presence. Upload Rich Presence image
+assets in the Discord Developer Portal for the project application, then use their asset keys in the
+app's icon setting.

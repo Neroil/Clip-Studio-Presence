@@ -1,4 +1,7 @@
-use crate::clip_studio::{detect_clip_studio, ClipStudioDetection};
+use crate::{
+    app_config::{DEFAULT_ICON_KEY, DEFAULT_PRESENCE_MESSAGE},
+    clip_studio::{detect_clip_studio, ClipStudioDetection},
+};
 use crate::discord_presence::PresenceClient;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -12,18 +15,23 @@ use tauri::{AppHandle, Manager};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Settings {
-    pub client_id: String,
-    pub large_image_key: String,
+    #[serde(default = "default_presence_message")]
+    pub presence_message: String,
+    #[serde(default = "default_icon_key")]
+    pub icon_key: String,
+    #[serde(default = "default_true")]
     pub show_document_name: bool,
+    #[serde(default = "default_true")]
     pub show_elapsed_time: bool,
+    #[serde(default)]
     pub only_when_focused: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            client_id: String::new(),
-            large_image_key: "clip_studio_paint".to_string(),
+            presence_message: default_presence_message(),
+            icon_key: default_icon_key(),
             show_document_name: true,
             show_elapsed_time: true,
             only_when_focused: false,
@@ -159,4 +167,16 @@ fn now_unix() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or_default()
+}
+
+fn default_presence_message() -> String {
+    DEFAULT_PRESENCE_MESSAGE.to_string()
+}
+
+fn default_icon_key() -> String {
+    DEFAULT_ICON_KEY.to_string()
+}
+
+fn default_true() -> bool {
+    true
 }

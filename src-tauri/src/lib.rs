@@ -1,3 +1,4 @@
+mod app_config;
 mod app_state;
 mod clip_studio;
 mod discord_presence;
@@ -30,4 +31,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("failed to run Clip Studio Presence");
 }
-

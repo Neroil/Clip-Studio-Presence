@@ -2,8 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import "./styles.css";
 
 const fields = {
-  clientId: document.querySelector("#client-id"),
-  largeImageKey: document.querySelector("#large-image-key"),
+  presenceMessage: document.querySelector("#presence-message"),
+  iconKey: document.querySelector("#icon-key"),
   showDocumentName: document.querySelector("#show-document-name"),
   showElapsedTime: document.querySelector("#show-elapsed-time"),
   onlyWhenFocused: document.querySelector("#only-when-focused"),
@@ -23,8 +23,8 @@ const refreshButton = document.querySelector("#refresh-button");
 let settingsHydrated = false;
 
 function applySettings(settings) {
-  fields.clientId.value = settings.client_id ?? "";
-  fields.largeImageKey.value = settings.large_image_key ?? "clip_studio_paint";
+  fields.presenceMessage.value = settings.presence_message ?? "Drawing in Clip Studio Paint";
+  fields.iconKey.value = settings.icon_key ?? "clip_studio_paint";
   fields.showDocumentName.checked = settings.show_document_name;
   fields.showElapsedTime.checked = settings.show_elapsed_time;
   fields.onlyWhenFocused.checked = settings.only_when_focused;
@@ -32,8 +32,8 @@ function applySettings(settings) {
 
 function readSettings() {
   return {
-    client_id: fields.clientId.value.trim(),
-    large_image_key: fields.largeImageKey.value.trim() || "clip_studio_paint",
+    presence_message: fields.presenceMessage.value.trim() || "Drawing in Clip Studio Paint",
+    icon_key: fields.iconKey.value.trim() || "clip_studio_paint",
     show_document_name: fields.showDocumentName.checked,
     show_elapsed_time: fields.showElapsedTime.checked,
     only_when_focused: fields.onlyWhenFocused.checked,

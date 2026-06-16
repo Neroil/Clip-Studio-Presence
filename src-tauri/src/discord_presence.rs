@@ -1,4 +1,5 @@
 use crate::{
+    app_config::{DEFAULT_ICON_KEY, DEFAULT_PRESENCE_MESSAGE, DISCORD_CLIENT_ID},
     app_state::Settings,
     clip_studio::ClipStudioDetection,
 };
@@ -27,14 +28,6 @@ impl PresenceClient {
         settings: &Settings,
         detection: &ClipStudioDetection,
     ) -> PresenceState {
-        if settings.client_id.trim().is_empty() {
-            self.disconnect();
-            return PresenceState {
-                connected: false,
-                error: Some("Add a Discord application ID to start Rich Presence.".to_string()),
-            };
-        }
-
         let should_show = detection.running && (!settings.only_when_focused || detection.focused);
         if !should_show {
             self.active_since = None;
@@ -42,11 +35,11 @@ impl PresenceClient {
             return PresenceState::default();
         }
 
-        if self.client_id != settings.client_id || self.client.is_none() {
+        if self.client_id != DISCORD_CLIENT_ID || self.client.is_none() {
             self.disconnect();
-            self.client_id = settings.client_id.clone();
+            self.client_id = DISCORD_CLIENT_ID.to_string();
 
-            match DiscordIpcClient::new(settings.client_id.as_str()).and_then(|mut client| {
+            match DiscordIpcClient::new(DISCORD_CLIENT_ID).and_then(|mut client| {
                 client.connect()?;
                 Ok(client)
             }) {
@@ -64,7 +57,8 @@ impl PresenceClient {
             self.active_since = Some(now_unix());
         }
 
-        let mut activity = Activity::new().details("Drawing in Clip Studio Paint");
+        let details = activity_text(&settings.presence_message, DEFAULT_PRESENCE_MESSAGE);
+        let mut activity = Activity::new().details(details.as_str());
 
         let state = if settings.show_document_name {
             detection
@@ -83,10 +77,11 @@ impl PresenceClient {
             }
         }
 
-        if !settings.large_image_key.trim().is_empty() {
+        let icon_key = activity_text(&settings.icon_key, DEFAULT_ICON_KEY);
+        if !icon_key.is_empty() {
             activity = activity.assets(
                 Assets::new()
-                    .large_image(settings.large_image_key.as_str())
+                    .large_image(icon_key.as_str())
                     .large_text("Clip Studio Paint"),
             );
         }
@@ -134,3 +129,8 @@ fn now_unix() -> i64 {
         .unwrap_or_default()
 }
 
+fn activity_text(value: &str, fallback: &str) -> String {
+    let text = value.trim();
+    let text = if text.is_empty() { fallback } else { text };
+    text.chars().take(128).collect()
+}

@@ -23,22 +23,23 @@
           </div>
 
           <label>
-            Discord application ID
+            Presence message
             <input
-              id="client-id"
-              name="clientId"
+              id="presence-message"
+              name="presenceMessage"
               autocomplete="off"
-              inputmode="numeric"
-              placeholder="123456789012345678"
+              maxlength="128"
+              placeholder="Drawing in Clip Studio Paint"
             />
           </label>
 
           <label>
-            Large image asset key
+            Icon asset key
             <input
-              id="large-image-key"
-              name="largeImageKey"
+              id="icon-key"
+              name="iconKey"
               autocomplete="off"
+              maxlength="128"
               placeholder="clip_studio_paint"
             />
           </label>
@@ -91,4 +92,3 @@
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
-
