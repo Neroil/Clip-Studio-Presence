@@ -45,6 +45,7 @@ pub struct AppStatus {
     pub clip_studio_running: bool,
     pub clip_studio_focused: bool,
     pub document_title: Option<String>,
+    pub shared_screenshot_url: Option<String>,
     pub discord_connected: bool,
     pub discord_error: Option<String>,
     pub last_updated_unix: u64,
@@ -54,6 +55,7 @@ pub struct AppStatus {
 struct RuntimeState {
     settings: Settings,
     detection: ClipStudioDetection,
+    shared_screenshot_url: Option<String>,
     discord_connected: bool,
     discord_error: Option<String>,
     last_updated_unix: u64,
@@ -76,6 +78,7 @@ impl AppState {
             inner: Arc::new(Mutex::new(RuntimeState {
                 settings,
                 detection: ClipStudioDetection::default(),
+                shared_screenshot_url: None,
                 discord_connected: false,
                 discord_error: None,
                 last_updated_unix: now_unix(),
@@ -92,6 +95,7 @@ impl AppState {
             clip_studio_running: inner.detection.running,
             clip_studio_focused: inner.detection.focused,
             document_title: inner.detection.document_title.clone(),
+            shared_screenshot_url: inner.shared_screenshot_url.clone(),
             discord_connected: inner.discord_connected,
             discord_error: inner.discord_error.clone(),
             last_updated_unix: inner.last_updated_unix,
@@ -111,6 +115,12 @@ impl AppState {
         Ok(())
     }
 
+    pub fn set_shared_screenshot(&self, url: String) {
+        let mut inner = self.inner.lock().expect("app state lock poisoned");
+        inner.shared_screenshot_url = Some(url);
+        inner.last_updated_unix = now_unix();
+    }
+
     pub fn spawn_monitor(&self) {
         let state = self.clone_for_thread();
 
@@ -118,13 +128,14 @@ impl AppState {
             let mut presence = PresenceClient::default();
 
             loop {
-                let settings = {
+                let (settings, shared_screenshot_url) = {
                     let inner = state.inner.lock().expect("app state lock poisoned");
-                    inner.settings.clone()
+                    (inner.settings.clone(), inner.shared_screenshot_url.clone())
                 };
 
                 let detection = detect_clip_studio();
-                let presence_state = presence.sync(&settings, &detection);
+                let presence_state =
+                    presence.sync(&settings, &detection, shared_screenshot_url.as_deref());
 
                 {
                     let mut inner = state.inner.lock().expect("app state lock poisoned");

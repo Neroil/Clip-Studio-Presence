@@ -34,14 +34,12 @@
           </label>
 
           <label>
-            Icon asset key
-            <input
-              id="icon-key"
-              name="iconKey"
-              autocomplete="off"
-              maxlength="128"
-              placeholder="clip_studio_paint"
-            />
+            Icon
+            <select id="icon-key" name="iconKey">
+              <option value="icon_1">Icon 1</option>
+              <option value="icon_2">Icon 2</option>
+              <option value="icon_3">Icon 3</option>
+            </select>
           </label>
 
           <div class="switch-row">
@@ -83,7 +81,15 @@
               <dt>Discord</dt>
               <dd id="discord-state">Waiting</dd>
             </div>
+            <div>
+              <dt>Shared image</dt>
+              <dd id="shared-screenshot">Not captured yet</dd>
+            </div>
           </dl>
+
+          <button id="capture-button" class="wide-action" type="button">
+            Capture & Share
+          </button>
 
           <p id="status-message" class="note"></p>
         </section>

@@ -15,11 +15,13 @@ const statusNodes = {
   cspFocused: document.querySelector("#csp-focused"),
   documentTitle: document.querySelector("#document-title"),
   discordState: document.querySelector("#discord-state"),
+  sharedScreenshot: document.querySelector("#shared-screenshot"),
   message: document.querySelector("#status-message"),
 };
 
 const form = document.querySelector("#settings-form");
 const refreshButton = document.querySelector("#refresh-button");
+const captureButton = document.querySelector("#capture-button");
 let settingsHydrated = false;
 
 function applySettings(settings) {
@@ -73,8 +75,25 @@ function renderStatus(status) {
   statusNodes.cspFocused.textContent = boolText(status.clip_studio_focused);
   statusNodes.documentTitle.textContent = status.document_title || "Hidden or unavailable";
   statusNodes.discordState.textContent = status.discord_connected ? "Connected" : "Disconnected";
+  renderSharedScreenshot(status.shared_screenshot_url);
   statusNodes.message.textContent = status.discord_error || "";
   setPill(status);
+}
+
+function renderSharedScreenshot(url) {
+  statusNodes.sharedScreenshot.textContent = "";
+
+  if (!url) {
+    statusNodes.sharedScreenshot.textContent = "Not captured yet";
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = url;
+  statusNodes.sharedScreenshot.append(link);
 }
 
 async function refreshStatus() {
@@ -85,6 +104,24 @@ async function refreshStatus() {
     statusNodes.message.textContent = String(error);
     statusNodes.pill.textContent = "Error";
     statusNodes.pill.className = "pill warn";
+  }
+}
+
+async function captureAndShare() {
+  captureButton.disabled = true;
+  captureButton.textContent = "Capturing...";
+  statusNodes.message.textContent = "Capturing Clip Studio Paint and uploading...";
+
+  try {
+    const status = await invoke("capture_and_share");
+    renderStatus(status);
+    statusNodes.message.textContent =
+      "Shared screenshot updated. Discord will refresh the button shortly.";
+  } catch (error) {
+    statusNodes.message.textContent = String(error);
+  } finally {
+    captureButton.disabled = false;
+    captureButton.textContent = "Capture & Share";
   }
 }
 
@@ -101,6 +138,7 @@ form.addEventListener("submit", async (event) => {
 });
 
 refreshButton.addEventListener("click", refreshStatus);
+captureButton.addEventListener("click", captureAndShare);
 
 refreshStatus();
 setInterval(refreshStatus, 3000);

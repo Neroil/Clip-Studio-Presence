@@ -1,10 +1,12 @@
 use crate::{
-    app_config::{DEFAULT_ICON_KEY, DEFAULT_PRESENCE_MESSAGE, DISCORD_CLIENT_ID},
+    app_config::{
+        DEFAULT_ICON_KEY, DEFAULT_PRESENCE_MESSAGE, DISCORD_CLIENT_ID, SHARE_BUTTON_LABEL,
+    },
     app_state::Settings,
     clip_studio::ClipStudioDetection,
 };
 use discord_rich_presence::{
-    activity::{Activity, Assets, Timestamps},
+    activity::{Activity, Assets, Button, Timestamps},
     DiscordIpc, DiscordIpcClient,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -27,6 +29,7 @@ impl PresenceClient {
         &mut self,
         settings: &Settings,
         detection: &ClipStudioDetection,
+        shared_screenshot_url: Option<&str>,
     ) -> PresenceState {
         let should_show = detection.running && (!settings.only_when_focused || detection.focused);
         if !should_show {
@@ -86,6 +89,10 @@ impl PresenceClient {
             );
         }
 
+        if let Some(url) = shared_screenshot_url.and_then(valid_button_url) {
+            activity = activity.buttons(vec![Button::new(SHARE_BUTTON_LABEL, url)]);
+        }
+
         match self
             .client
             .as_mut()
@@ -133,4 +140,13 @@ fn activity_text(value: &str, fallback: &str) -> String {
     let text = value.trim();
     let text = if text.is_empty() { fallback } else { text };
     text.chars().take(128).collect()
+}
+
+fn valid_button_url(url: &str) -> Option<&str> {
+    let url = url.trim();
+    if url.len() <= 512 && (url.starts_with("https://") || url.starts_with("http://")) {
+        Some(url)
+    } else {
+        None
+    }
 }
