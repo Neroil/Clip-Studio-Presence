@@ -90,11 +90,11 @@ pub enum CaptureShareError {
 mod windows_capture {
     use super::*;
     use windows_sys::Win32::{
-        Foundation::{BOOL, CloseHandle, HWND, INVALID_HANDLE_VALUE, LPARAM, RECT},
+        Foundation::{CloseHandle, BOOL, HWND, INVALID_HANDLE_VALUE, LPARAM, RECT},
         Graphics::Gdi::{
-            BI_RGB, BITMAPINFO, BitBlt, CreateCompatibleBitmap, CreateCompatibleDC,
-            DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDIBits, GetWindowDC, RGBQUAD, ReleaseDC,
-            SRCCOPY, SelectObject,
+            BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
+            GetWindowDC, ReleaseDC, SelectObject, BITMAPINFO, BI_RGB, DIB_RGB_COLORS, RGBQUAD,
+            SRCCOPY,
         },
         Storage::Xps::PrintWindow,
         System::Diagnostics::ToolHelp::{
@@ -107,11 +107,7 @@ mod windows_capture {
         },
     };
 
-    const CLIP_STUDIO_PROCESS_NAMES: &[&str] = &[
-        "CLIPStudioPaint.exe",
-        "CLIPStudioPaintApp.exe",
-        "CLIPStudio.exe",
-    ];
+    const CLIP_STUDIO_PROCESS_NAMES: &[&str] = &["CLIPStudioPaint.exe", "CLIPStudioPaintApp.exe"];
 
     pub fn capture_clip_studio_png() -> Result<Vec<u8>, CaptureShareError> {
         let hwnd = find_clip_studio_window()?;
@@ -220,7 +216,8 @@ mod windows_capture {
                 rgbReserved: 0,
             }],
         };
-        bitmap_info.bmiHeader.biSize = size_of::<windows_sys::Win32::Graphics::Gdi::BITMAPINFOHEADER>() as u32;
+        bitmap_info.bmiHeader.biSize =
+            size_of::<windows_sys::Win32::Graphics::Gdi::BITMAPINFOHEADER>() as u32;
         bitmap_info.bmiHeader.biWidth = width;
         bitmap_info.bmiHeader.biHeight = -height;
         bitmap_info.bmiHeader.biPlanes = 1;
@@ -316,7 +313,10 @@ mod windows_capture {
     }
 
     fn utf16z_to_string(buffer: &[u16]) -> String {
-        let end = buffer.iter().position(|char| *char == 0).unwrap_or(buffer.len());
+        let end = buffer
+            .iter()
+            .position(|char| *char == 0)
+            .unwrap_or(buffer.len());
         String::from_utf16_lossy(&buffer[..end])
     }
 }

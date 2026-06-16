@@ -64,11 +64,7 @@ mod windows {
         },
     };
 
-    const CLIP_STUDIO_PROCESS_NAMES: &[&str] = &[
-        "CLIPStudioPaint.exe",
-        "CLIPStudioPaintApp.exe",
-        "CLIPStudio.exe",
-    ];
+    const CLIP_STUDIO_PROCESS_NAMES: &[&str] = &["CLIPStudioPaint.exe", "CLIPStudioPaintApp.exe"];
 
     #[derive(Clone, Debug)]
     pub struct ProcessInfo {
@@ -151,7 +147,10 @@ mod windows {
     }
 
     fn utf16z_to_string(buffer: &[u16]) -> String {
-        let end = buffer.iter().position(|char| *char == 0).unwrap_or(buffer.len());
+        let end = buffer
+            .iter()
+            .position(|char| *char == 0)
+            .unwrap_or(buffer.len());
         String::from_utf16_lossy(&buffer[..end])
     }
 }

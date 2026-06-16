@@ -7,23 +7,72 @@
   </head>
   <body>
     <main id="app">
-      <section class="status-band">
+      <header class="topbar">
         <div>
           <p class="eyebrow">Discord Rich Presence</p>
           <h1>Clip Studio Presence</h1>
         </div>
         <div id="connection-pill" class="pill muted">Starting</div>
+      </header>
+
+      <section class="status-strip">
+        <div>
+          <span>Paint</span>
+          <strong id="csp-running">Checking</strong>
+        </div>
+        <div>
+          <span>Focus</span>
+          <strong id="csp-focused">Checking</strong>
+        </div>
+        <div class="status-title">
+          <span>Window</span>
+          <strong id="document-title">Hidden or unavailable</strong>
+        </div>
+        <div>
+          <span>Discord</span>
+          <strong id="discord-state">Waiting</strong>
+        </div>
+        <div>
+          <span>Procrast.</span>
+          <strong id="procrastination-percent">0%</strong>
+        </div>
       </section>
 
-      <section class="layout">
-        <form id="settings-form" class="panel">
-          <div class="section-heading">
-            <h2>Settings</h2>
-            <button type="submit">Save</button>
+      <form id="settings-form" class="panel">
+        <div class="section-heading">
+          <h2>Presence</h2>
+          <button type="submit">Save</button>
+        </div>
+
+        <div class="core-grid">
+          <label>
+            Activity
+            <select id="activity-type" name="activityType">
+              <option value="playing">Playing</option>
+              <option value="watching">Watching</option>
+              <option value="listening">Listening to</option>
+              <option value="competing">Competing in</option>
+            </select>
+          </label>
+
+          <div class="wide-field field-block">
+            <label for="rpc-name">RPC name</label>
+            <span class="inline-input">
+              <input
+                id="rpc-name"
+                name="rpcName"
+                autocomplete="off"
+                maxlength="128"
+                placeholder="Clip Studio Paint"
+              />
+              <button id="use-current-file-button" type="button" class="secondary-button">
+                Use current
+              </button>
+            </span>
           </div>
 
           <label>
-            Presence message
+            Details
             <input
               id="presence-message"
               name="presenceMessage"
@@ -33,67 +82,226 @@
             />
           </label>
 
-          <label>
-            Icon
-            <select id="icon-key" name="iconKey">
-              <option value="icon_1">Icon 1</option>
-              <option value="icon_2">Icon 2</option>
-              <option value="icon_3">Icon 3</option>
-            </select>
+          <label class="wide-field">
+            State fallback
+            <input
+              id="state-text"
+              name="stateText"
+              autocomplete="off"
+              maxlength="128"
+              placeholder="Working on an illustration"
+            />
           </label>
 
-          <div class="switch-row">
-            <span>Show document name</span>
-            <input id="show-document-name" type="checkbox" />
+          <label class="wide-field">
+            Away message
+            <input
+              id="idle-message"
+              name="idleMessage"
+              autocomplete="off"
+              maxlength="128"
+              placeholder="Procrastinating teehee"
+            />
+          </label>
+        </div>
+
+        <div class="switch-row compact-switch">
+          <span>Use active document title</span>
+          <input id="show-document-name" type="checkbox" />
+        </div>
+
+        <div class="switch-row compact-switch">
+          <span>Match RPC name to file</span>
+          <input id="rpc-name-from-document" type="checkbox" />
+        </div>
+
+        <div class="switch-row compact-switch">
+          <span>Show procrastination %</span>
+          <input id="show-procrastination-percent" type="checkbox" />
+        </div>
+
+        <details>
+          <summary>Images</summary>
+          <div class="details-grid">
+            <label>
+              Large key
+              <input
+                id="icon-key"
+                name="iconKey"
+                list="known-icon-keys"
+                autocomplete="off"
+                maxlength="128"
+                placeholder="icon_1"
+              />
+            </label>
+
+            <label>
+              Large hover
+              <input
+                id="icon-text"
+                name="iconText"
+                autocomplete="off"
+                maxlength="128"
+                placeholder="Clip Studio Paint"
+              />
+            </label>
+
+            <label>
+              Small key
+              <input
+                id="small-icon-key"
+                name="smallIconKey"
+                list="known-icon-keys"
+                autocomplete="off"
+                maxlength="128"
+                placeholder="icon_2"
+              />
+            </label>
+
+            <label>
+              Small hover
+              <input
+                id="small-icon-text"
+                name="smallIconText"
+                autocomplete="off"
+                maxlength="128"
+                placeholder="On canvas"
+              />
+            </label>
           </div>
+        </details>
 
-          <div class="switch-row">
-            <span>Show elapsed drawing time</span>
-            <input id="show-elapsed-time" type="checkbox" />
+        <datalist id="known-icon-keys">
+          <option value="icon_1"></option>
+          <option value="icon_2"></option>
+          <option value="icon_3"></option>
+        </datalist>
+
+        <details>
+          <summary>Buttons</summary>
+          <div class="details-grid">
+            <label>
+              Share label
+              <input
+                id="share-button-label"
+                name="shareButtonLabel"
+                autocomplete="off"
+                maxlength="32"
+                placeholder="See what I'm working on"
+              />
+            </label>
+
+            <span></span>
+
+            <label>
+              Button 1
+              <input
+                id="button-1-label"
+                name="button1Label"
+                autocomplete="off"
+                maxlength="32"
+                placeholder="Portfolio"
+              />
+            </label>
+
+            <label>
+              URL
+              <input
+                id="button-1-url"
+                name="button1Url"
+                autocomplete="off"
+                maxlength="512"
+                placeholder="https://example.com"
+              />
+            </label>
+
+            <label>
+              Button 2
+              <input
+                id="button-2-label"
+                name="button2Label"
+                autocomplete="off"
+                maxlength="32"
+                placeholder="Commission info"
+              />
+            </label>
+
+            <label>
+              URL
+              <input
+                id="button-2-url"
+                name="button2Url"
+                autocomplete="off"
+                maxlength="512"
+                placeholder="https://example.com/info"
+              />
+            </label>
           </div>
+        </details>
 
-          <div class="switch-row">
-            <span>Only show while Clip Studio is focused</span>
-            <input id="only-when-focused" type="checkbox" />
+        <details>
+          <summary>Advanced</summary>
+          <div class="details-grid">
+            <label class="wide-field">
+              Discord application ID
+              <input
+                id="discord-client-id"
+                name="discordClientId"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="32"
+                placeholder="1516410830063796294"
+              />
+            </label>
+
+            <label>
+              Timestamp
+              <select id="timestamp-mode" name="timestampMode">
+                <option value="activity">Since Paint focus</option>
+                <option value="app">Since app start</option>
+                <option value="custom">Custom time</option>
+                <option value="none">Hidden</option>
+              </select>
+            </label>
+
+            <div id="custom-timestamp-fields" class="details-grid nested" hidden>
+              <label>
+                Start
+                <input id="custom-timestamp-start" type="datetime-local" />
+              </label>
+
+              <label>
+                End
+                <input id="custom-timestamp-end" type="datetime-local" />
+              </label>
+            </div>
+
+            <label>
+              Party size
+              <input id="party-size" type="number" min="0" max="2147483647" step="1" />
+            </label>
+
+            <label>
+              Party max
+              <input id="party-max" type="number" min="0" max="2147483647" step="1" />
+            </label>
+
+            <div class="switch-row compact-switch">
+              <span>Show elapsed time</span>
+              <input id="show-elapsed-time" type="checkbox" />
+            </div>
+
           </div>
-        </form>
+        </details>
 
-        <section class="panel">
-          <div class="section-heading">
-            <h2>Live Status</h2>
-            <button id="refresh-button" type="button">Refresh</button>
-          </div>
+        <footer class="actions">
+          <button id="capture-button" type="button">Capture & Share</button>
+          <button id="refresh-button" type="button" class="secondary-button">Refresh</button>
+        </footer>
 
-          <dl class="status-list">
-            <div>
-              <dt>Clip Studio Paint</dt>
-              <dd id="csp-running">Checking</dd>
-            </div>
-            <div>
-              <dt>Focused</dt>
-              <dd id="csp-focused">Checking</dd>
-            </div>
-            <div>
-              <dt>Window title</dt>
-              <dd id="document-title">Hidden or unavailable</dd>
-            </div>
-            <div>
-              <dt>Discord</dt>
-              <dd id="discord-state">Waiting</dd>
-            </div>
-            <div>
-              <dt>Shared image</dt>
-              <dd id="shared-screenshot">Not captured yet</dd>
-            </div>
-          </dl>
-
-          <button id="capture-button" class="wide-action" type="button">
-            Capture & Share
-          </button>
-
-          <p id="status-message" class="note"></p>
-        </section>
-      </section>
+        <p id="shared-screenshot" class="shared-link">Not captured yet</p>
+        <p id="status-message" class="note"></p>
+      </form>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>
