@@ -1,15 +1,17 @@
 use crate::discord_presence::PresenceClient;
 use crate::{
     app_config::{
-        DEFAULT_ACTIVITY_TYPE, DEFAULT_APPLY_SCREENSHOT_LUT, DEFAULT_BUTTON_1_LABEL,
-        DEFAULT_BUTTON_1_URL, DEFAULT_BUTTON_2_LABEL, DEFAULT_BUTTON_2_URL,
-        DEFAULT_CUSTOM_TIMESTAMP_END, DEFAULT_CUSTOM_TIMESTAMP_START, DEFAULT_ICON_KEY,
-        DEFAULT_ICON_TEXT, DEFAULT_ICON_URL, DEFAULT_IDLE_MESSAGE, DEFAULT_PRESENCE_MESSAGE,
-        DEFAULT_PRESENCE_URL, DEFAULT_RPC_NAME, DEFAULT_SCREENSHOT_LUT_PATH,
-        DEFAULT_SMALL_ICON_KEY, DEFAULT_SMALL_ICON_TEXT, DEFAULT_SMALL_ICON_URL,
-        DEFAULT_STATE_TEXT, DEFAULT_STATE_URL, DEFAULT_STATUS_DISPLAY_TYPE, DEFAULT_TIMESTAMP_MODE,
-        DISCORD_CLIENT_ID,
+        DEFAULT_ACTIVITY_TYPE, DEFAULT_APPLY_SCREENSHOT_LUT,
+        DEFAULT_AUTO_CAPTURE_INITIAL_DELAY_SECONDS, DEFAULT_AUTO_CAPTURE_INTERVAL_SECONDS,
+        DEFAULT_AUTO_CAPTURE_SCREENSHOT, DEFAULT_BUTTON_1_LABEL, DEFAULT_BUTTON_1_URL,
+        DEFAULT_BUTTON_2_LABEL, DEFAULT_BUTTON_2_URL, DEFAULT_CUSTOM_TIMESTAMP_END,
+        DEFAULT_CUSTOM_TIMESTAMP_START, DEFAULT_ICON_KEY, DEFAULT_ICON_TEXT, DEFAULT_ICON_URL,
+        DEFAULT_IDLE_MESSAGE, DEFAULT_PRESENCE_MESSAGE, DEFAULT_PRESENCE_URL, DEFAULT_RPC_NAME,
+        DEFAULT_SCREENSHOT_LUT_PATH, DEFAULT_SMALL_ICON_KEY, DEFAULT_SMALL_ICON_TEXT,
+        DEFAULT_SMALL_ICON_URL, DEFAULT_STATE_TEXT, DEFAULT_STATE_URL, DEFAULT_STATUS_DISPLAY_TYPE,
+        DEFAULT_TIMESTAMP_MODE, DISCORD_CLIENT_ID,
     },
+    capture_share,
     clip_studio::{detect_clip_studio, ClipStudioDetection},
 };
 use serde::{Deserialize, Serialize};
@@ -68,6 +70,12 @@ pub struct Settings {
     pub apply_screenshot_lut: bool,
     #[serde(default = "default_screenshot_lut_path")]
     pub screenshot_lut_path: String,
+    #[serde(default = "default_auto_capture_screenshot")]
+    pub auto_capture_screenshot: bool,
+    #[serde(default = "default_auto_capture_initial_delay_seconds")]
+    pub auto_capture_initial_delay_seconds: u64,
+    #[serde(default = "default_auto_capture_interval_seconds")]
+    pub auto_capture_interval_seconds: u64,
     #[serde(default = "default_timestamp_mode")]
     pub timestamp_mode: String,
     #[serde(default = "default_custom_timestamp_start")]
@@ -113,6 +121,9 @@ impl Default for Settings {
             button_2_url: default_button_2_url(),
             apply_screenshot_lut: default_apply_screenshot_lut(),
             screenshot_lut_path: default_screenshot_lut_path(),
+            auto_capture_screenshot: default_auto_capture_screenshot(),
+            auto_capture_initial_delay_seconds: default_auto_capture_initial_delay_seconds(),
+            auto_capture_interval_seconds: default_auto_capture_interval_seconds(),
             timestamp_mode: default_timestamp_mode(),
             custom_timestamp_start: default_custom_timestamp_start(),
             custom_timestamp_end: default_custom_timestamp_end(),
@@ -136,6 +147,10 @@ pub struct AppStatus {
     pub discord_connected: bool,
     pub discord_error: Option<String>,
     pub procrastination_percent: Option<u8>,
+    pub auto_capture_active: bool,
+    pub auto_capture_next_unix: Option<u64>,
+    pub auto_capture_uploading: bool,
+    pub auto_capture_error: Option<String>,
     pub last_updated_unix: u64,
 }
 
@@ -146,6 +161,15 @@ struct FocusStats {
     last_sample_unix: u64,
 }
 
+#[derive(Clone, Debug, Default)]
+struct AutoCaptureState {
+    focused_since_unix: Option<u64>,
+    next_capture_unix: Option<u64>,
+    upload_in_progress: bool,
+    last_error: Option<String>,
+    session_id: u64,
+}
+
 #[derive(Clone, Debug)]
 struct RuntimeState {
     settings: Settings,
@@ -154,6 +178,7 @@ struct RuntimeState {
     discord_connected: bool,
     discord_error: Option<String>,
     focus_stats: FocusStats,
+    auto_capture: AutoCaptureState,
     last_document_title: Option<String>,
     last_updated_unix: u64,
 }
@@ -184,6 +209,7 @@ impl AppState {
                     idle_seconds: 0,
                     last_sample_unix: loaded_at,
                 },
+                auto_capture: AutoCaptureState::default(),
                 last_document_title: None,
                 last_updated_unix: loaded_at,
             })),
@@ -203,6 +229,10 @@ impl AppState {
             discord_connected: inner.discord_connected,
             discord_error: inner.discord_error.clone(),
             procrastination_percent: inner.focus_stats.procrastination_percent(),
+            auto_capture_active: inner.auto_capture.focused_since_unix.is_some(),
+            auto_capture_next_unix: inner.auto_capture.next_capture_unix,
+            auto_capture_uploading: inner.auto_capture.upload_in_progress,
+            auto_capture_error: inner.auto_capture.last_error.clone(),
             last_updated_unix: inner.last_updated_unix,
         }
     }
@@ -217,16 +247,20 @@ impl AppState {
 
         let mut inner = self.inner.lock().expect("app state lock poisoned");
         inner.settings = settings;
+        inner.auto_capture.focused_since_unix = None;
+        inner.auto_capture.next_capture_unix = None;
+        inner.auto_capture.session_id = inner.auto_capture.session_id.saturating_add(1);
         Ok(())
     }
 
     pub fn set_shared_screenshot(&self, url: String) {
         let mut inner = self.inner.lock().expect("app state lock poisoned");
         inner.shared_screenshot_url = Some(url);
+        inner.auto_capture.last_error = None;
         inner.last_updated_unix = now_unix();
     }
 
-    pub fn spawn_monitor(&self) {
+    pub fn spawn_monitor(&self, app: AppHandle) {
         let state = self.clone_for_thread();
 
         thread::spawn(move || {
@@ -270,6 +304,8 @@ impl AppState {
                     inner.last_updated_unix = now_unix();
                 }
 
+                state.maybe_start_auto_capture(&app, &settings);
+
                 thread::sleep(Duration::from_secs(3));
             }
         });
@@ -279,6 +315,77 @@ impl AppState {
         Self {
             inner: Arc::clone(&self.inner),
             config_path: self.config_path.clone(),
+        }
+    }
+
+    fn maybe_start_auto_capture(&self, app: &AppHandle, settings: &Settings) {
+        let now = now_unix();
+        let mut capture_settings = None;
+
+        {
+            let mut inner = self.inner.lock().expect("app state lock poisoned");
+            if !settings.auto_capture_screenshot || !inner.detection.focused {
+                let was_active = inner.auto_capture.focused_since_unix.is_some()
+                    || inner.auto_capture.next_capture_unix.is_some();
+                inner.auto_capture.focused_since_unix = None;
+                inner.auto_capture.next_capture_unix = None;
+                if was_active {
+                    inner.auto_capture.session_id = inner.auto_capture.session_id.saturating_add(1);
+                    inner.last_updated_unix = now;
+                }
+                return;
+            }
+
+            if inner.auto_capture.focused_since_unix.is_none() {
+                inner.auto_capture.session_id = inner.auto_capture.session_id.saturating_add(1);
+                inner.auto_capture.focused_since_unix = Some(now);
+                inner.auto_capture.next_capture_unix =
+                    Some(now + settings.auto_capture_initial_delay_seconds.max(1));
+                inner.last_updated_unix = now;
+                return;
+            }
+
+            let due = inner
+                .auto_capture
+                .next_capture_unix
+                .map(|next| now >= next)
+                .unwrap_or(false);
+            if due && !inner.auto_capture.upload_in_progress {
+                inner.auto_capture.upload_in_progress = true;
+                inner.auto_capture.last_error = None;
+                inner.last_updated_unix = now;
+                capture_settings = Some((settings.clone(), inner.auto_capture.session_id));
+            }
+        }
+
+        if let Some((capture_settings, session_id)) = capture_settings {
+            let state = self.clone_for_thread();
+            let app = app.clone();
+
+            thread::spawn(move || {
+                let result = capture_share::capture_and_upload(&app, &capture_settings);
+                let finished_at = now_unix();
+                let mut inner = state.inner.lock().expect("app state lock poisoned");
+
+                match result {
+                    Ok(result) => {
+                        inner.shared_screenshot_url = Some(result.url);
+                        inner.auto_capture.last_error = None;
+                    }
+                    Err(error) => {
+                        inner.auto_capture.last_error = Some(error.to_string());
+                    }
+                }
+
+                inner.auto_capture.upload_in_progress = false;
+                if inner.auto_capture.session_id == session_id
+                    && inner.auto_capture.focused_since_unix.is_some()
+                {
+                    inner.auto_capture.next_capture_unix =
+                        Some(finished_at + capture_settings.auto_capture_interval_seconds.max(1));
+                }
+                inner.last_updated_unix = finished_at;
+            });
         }
     }
 }
@@ -414,6 +521,18 @@ fn default_apply_screenshot_lut() -> bool {
 
 fn default_screenshot_lut_path() -> String {
     DEFAULT_SCREENSHOT_LUT_PATH.to_string()
+}
+
+fn default_auto_capture_screenshot() -> bool {
+    DEFAULT_AUTO_CAPTURE_SCREENSHOT
+}
+
+fn default_auto_capture_initial_delay_seconds() -> u64 {
+    DEFAULT_AUTO_CAPTURE_INITIAL_DELAY_SECONDS
+}
+
+fn default_auto_capture_interval_seconds() -> u64 {
+    DEFAULT_AUTO_CAPTURE_INTERVAL_SECONDS
 }
 
 fn default_timestamp_mode() -> String {

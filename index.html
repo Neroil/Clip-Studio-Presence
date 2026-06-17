@@ -283,6 +283,33 @@
           <summary>Advanced</summary>
           <div class="details-grid">
             <div class="switch-row compact-switch wide-field">
+              <span>Auto capture screenshot</span>
+              <input id="auto-capture-screenshot" type="checkbox" />
+            </div>
+
+            <label>
+              First auto capture delay (seconds)
+              <input
+                id="auto-capture-initial-delay-seconds"
+                type="number"
+                min="1"
+                max="86400"
+                step="1"
+              />
+            </label>
+
+            <label>
+              Repeat interval (seconds)
+              <input
+                id="auto-capture-interval-seconds"
+                type="number"
+                min="1"
+                max="86400"
+                step="1"
+              />
+            </label>
+
+            <div class="switch-row compact-switch wide-field">
               <span>Apply LUT to screenshot</span>
               <input id="apply-screenshot-lut" type="checkbox" />
             </div>

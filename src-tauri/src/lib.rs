@@ -33,7 +33,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let state = AppState::load(app.handle().clone());
-            state.spawn_monitor();
+            state.spawn_monitor(app.handle().clone());
             app.manage(state);
             Ok(())
         })

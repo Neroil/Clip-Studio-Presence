@@ -24,6 +24,9 @@ const fields = {
   button2Url: document.querySelector("#button-2-url"),
   applyScreenshotLut: document.querySelector("#apply-screenshot-lut"),
   screenshotLutPath: document.querySelector("#screenshot-lut-path"),
+  autoCaptureScreenshot: document.querySelector("#auto-capture-screenshot"),
+  autoCaptureInitialDelaySeconds: document.querySelector("#auto-capture-initial-delay-seconds"),
+  autoCaptureIntervalSeconds: document.querySelector("#auto-capture-interval-seconds"),
   timestampMode: document.querySelector("#timestamp-mode"),
   customTimestampStart: document.querySelector("#custom-timestamp-start"),
   customTimestampEnd: document.querySelector("#custom-timestamp-end"),
@@ -75,6 +78,10 @@ function applySettings(settings) {
   fields.button2Url.value = settings.button_2_url ?? "";
   fields.applyScreenshotLut.checked = settings.apply_screenshot_lut ?? false;
   fields.screenshotLutPath.value = settings.screenshot_lut_path ?? "";
+  fields.autoCaptureScreenshot.checked = settings.auto_capture_screenshot ?? true;
+  fields.autoCaptureInitialDelaySeconds.value =
+    settings.auto_capture_initial_delay_seconds ?? 30;
+  fields.autoCaptureIntervalSeconds.value = settings.auto_capture_interval_seconds ?? 300;
   fields.timestampMode.value = settings.timestamp_mode ?? "activity";
   fields.customTimestampStart.value = unixToDateTimeLocal(settings.custom_timestamp_start);
   fields.customTimestampEnd.value = unixToDateTimeLocal(settings.custom_timestamp_end);
@@ -85,6 +92,7 @@ function applySettings(settings) {
   fields.showProcrastinationPercent.checked = settings.show_procrastination_percent ?? true;
   updateCustomTimestampVisibility();
   updateScreenshotLutVisibility();
+  updateAutoCaptureVisibility();
 }
 
 function readSettings() {
@@ -111,6 +119,13 @@ function readSettings() {
     button_2_url: fields.button2Url.value.trim(),
     apply_screenshot_lut: fields.applyScreenshotLut.checked,
     screenshot_lut_path: fields.screenshotLutPath.value.trim(),
+    auto_capture_screenshot: fields.autoCaptureScreenshot.checked,
+    auto_capture_initial_delay_seconds: clampNumber(
+      fields.autoCaptureInitialDelaySeconds.value,
+      1,
+      86400,
+    ),
+    auto_capture_interval_seconds: clampNumber(fields.autoCaptureIntervalSeconds.value, 1, 86400),
     timestamp_mode: fields.timestampMode.value,
     custom_timestamp_start: dateTimeLocalToUnix(fields.customTimestampStart.value),
     custom_timestamp_end: dateTimeLocalToUnix(fields.customTimestampEnd.value),
@@ -158,6 +173,12 @@ function updateScreenshotLutVisibility() {
   fields.screenshotLutPath.disabled = !fields.applyScreenshotLut.checked;
 }
 
+function updateAutoCaptureVisibility() {
+  const disabled = !fields.autoCaptureScreenshot.checked;
+  fields.autoCaptureInitialDelaySeconds.disabled = disabled;
+  fields.autoCaptureIntervalSeconds.disabled = disabled;
+}
+
 function setPill(status) {
   statusNodes.pill.className = "pill";
 
@@ -192,7 +213,15 @@ function renderStatus(status) {
   statusNodes.procrastinationPercent.textContent =
     status.procrastination_percent == null ? "0%" : `${status.procrastination_percent}%`;
   renderSharedScreenshot(status.shared_screenshot_url);
-  statusNodes.message.textContent = status.discord_error || "";
+  if (status.discord_error) {
+    statusNodes.message.textContent = status.discord_error;
+  } else if (status.auto_capture_uploading) {
+    statusNodes.message.textContent = "Auto capture is uploading a screenshot...";
+  } else if (status.auto_capture_error) {
+    statusNodes.message.textContent = `Auto capture failed: ${status.auto_capture_error}`;
+  } else {
+    statusNodes.message.textContent = "";
+  }
   setPill(status);
 }
 
@@ -288,7 +317,9 @@ captureButton.addEventListener("click", captureAndShare);
 useCurrentFileButton.addEventListener("click", useCurrentFileName);
 fields.timestampMode.addEventListener("change", updateCustomTimestampVisibility);
 fields.applyScreenshotLut.addEventListener("change", updateScreenshotLutVisibility);
+fields.autoCaptureScreenshot.addEventListener("change", updateAutoCaptureVisibility);
 
 refreshStatus();
 updateScreenshotLutVisibility();
+updateAutoCaptureVisibility();
 setInterval(refreshStatus, 3000);
