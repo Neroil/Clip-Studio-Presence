@@ -21,6 +21,7 @@ pub const DEFAULT_RPC_NAME: &str = "Clip Studio Paint";
 pub const DEFAULT_SMALL_ICON_KEY: &str = "";
 pub const DEFAULT_SMALL_ICON_TEXT: &str = "";
 pub const DEFAULT_SMALL_ICON_URL: &str = "";
+pub const DEFAULT_START_ON_BOOT: bool = false;
 pub const DEFAULT_STATUS_DISPLAY_TYPE: &str = "name";
 pub const DEFAULT_STATE_TEXT: &str = "Working on an illustration";
 pub const DEFAULT_STATE_URL: &str = "";

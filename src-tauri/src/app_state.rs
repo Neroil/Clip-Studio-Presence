@@ -8,8 +8,8 @@ use crate::{
         DEFAULT_CUSTOM_TIMESTAMP_START, DEFAULT_ICON_KEY, DEFAULT_ICON_TEXT, DEFAULT_ICON_URL,
         DEFAULT_IDLE_MESSAGE, DEFAULT_PRESENCE_MESSAGE, DEFAULT_PRESENCE_URL, DEFAULT_RPC_NAME,
         DEFAULT_SCREENSHOT_LUT_PATH, DEFAULT_SMALL_ICON_KEY, DEFAULT_SMALL_ICON_TEXT,
-        DEFAULT_SMALL_ICON_URL, DEFAULT_STATE_TEXT, DEFAULT_STATE_URL, DEFAULT_STATUS_DISPLAY_TYPE,
-        DEFAULT_TIMESTAMP_MODE, DISCORD_CLIENT_ID,
+        DEFAULT_SMALL_ICON_URL, DEFAULT_START_ON_BOOT, DEFAULT_STATE_TEXT, DEFAULT_STATE_URL,
+        DEFAULT_STATUS_DISPLAY_TYPE, DEFAULT_TIMESTAMP_MODE, DISCORD_CLIENT_ID,
     },
     capture_share,
     clip_studio::{detect_clip_studio, ClipStudioDetection},
@@ -92,6 +92,8 @@ pub struct Settings {
     pub show_elapsed_time: bool,
     #[serde(default = "default_true")]
     pub show_procrastination_percent: bool,
+    #[serde(default = "default_start_on_boot")]
+    pub start_on_boot: bool,
     #[serde(default)]
     pub only_when_focused: bool,
 }
@@ -132,6 +134,7 @@ impl Default for Settings {
             show_document_name: true,
             show_elapsed_time: true,
             show_procrastination_percent: true,
+            start_on_boot: default_start_on_boot(),
             only_when_focused: false,
         }
     }
@@ -549,4 +552,8 @@ fn default_custom_timestamp_end() -> i64 {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_start_on_boot() -> bool {
+    DEFAULT_START_ON_BOOT
 }

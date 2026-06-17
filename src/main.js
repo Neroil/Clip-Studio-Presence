@@ -35,6 +35,7 @@ const fields = {
   showDocumentName: document.querySelector("#show-document-name"),
   showElapsedTime: document.querySelector("#show-elapsed-time"),
   showProcrastinationPercent: document.querySelector("#show-procrastination-percent"),
+  startOnBoot: document.querySelector("#start-on-boot"),
 };
 
 const statusNodes = {
@@ -46,11 +47,13 @@ const statusNodes = {
   procrastinationPercent: document.querySelector("#procrastination-percent"),
   sharedScreenshot: document.querySelector("#shared-screenshot"),
   message: document.querySelector("#status-message"),
+  update: document.querySelector("#update-status"),
 };
 
 const form = document.querySelector("#settings-form");
 const refreshButton = document.querySelector("#refresh-button");
 const captureButton = document.querySelector("#capture-button");
+const checkUpdatesButton = document.querySelector("#check-updates-button");
 const useCurrentFileButton = document.querySelector("#use-current-file-button");
 let settingsHydrated = false;
 let currentStatus = null;
@@ -90,6 +93,7 @@ function applySettings(settings) {
   fields.showDocumentName.checked = settings.show_document_name;
   fields.showElapsedTime.checked = settings.show_elapsed_time;
   fields.showProcrastinationPercent.checked = settings.show_procrastination_percent ?? true;
+  fields.startOnBoot.checked = settings.start_on_boot ?? false;
   updateCustomTimestampVisibility();
   updateScreenshotLutVisibility();
   updateAutoCaptureVisibility();
@@ -134,6 +138,7 @@ function readSettings() {
     show_document_name: fields.showDocumentName.checked,
     show_elapsed_time: fields.showElapsedTime.checked,
     show_procrastination_percent: fields.showProcrastinationPercent.checked,
+    start_on_boot: fields.startOnBoot.checked,
     only_when_focused: true,
   };
 }
@@ -253,6 +258,23 @@ function renderSharedScreenshot(url) {
   statusNodes.sharedScreenshot.append(link);
 }
 
+function renderUpdateResult(result) {
+  statusNodes.update.textContent = "";
+
+  if (!result.update_available || !result.release_url) {
+    statusNodes.update.textContent = result.message;
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = result.release_url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = "Open release";
+
+  statusNodes.update.append(`${result.message} `, link);
+}
+
 function errorMessage(error) {
   if (error instanceof Error) {
     return error.message || String(error);
@@ -300,6 +322,22 @@ async function captureAndShare() {
   }
 }
 
+async function checkForUpdates() {
+  checkUpdatesButton.disabled = true;
+  checkUpdatesButton.textContent = "Checking...";
+  statusNodes.update.textContent = "Checking GitHub releases...";
+
+  try {
+    const result = await invoke("check_for_updates");
+    renderUpdateResult(result);
+  } catch (error) {
+    statusNodes.update.textContent = `Update check failed: ${errorMessage(error)}`;
+  } finally {
+    checkUpdatesButton.disabled = false;
+    checkUpdatesButton.textContent = "Check for Updates";
+  }
+}
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   statusNodes.message.textContent = "Saving...";
@@ -314,6 +352,7 @@ form.addEventListener("submit", async (event) => {
 
 refreshButton.addEventListener("click", refreshStatus);
 captureButton.addEventListener("click", captureAndShare);
+checkUpdatesButton.addEventListener("click", checkForUpdates);
 useCurrentFileButton.addEventListener("click", useCurrentFileName);
 fields.timestampMode.addEventListener("change", updateCustomTimestampVisibility);
 fields.applyScreenshotLut.addEventListener("change", updateScreenshotLutVisibility);
