@@ -21,8 +21,13 @@ pub struct PresenceState {
 pub struct PresenceClient {
     client: Option<DiscordIpcClient>,
     client_id: String,
-    active_since: Option<i64>,
     app_started_at: i64,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PresenceTiming {
+    pub drawing_started_at: Option<i64>,
+    pub procrastinating_since: Option<i64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -36,7 +41,6 @@ impl Default for PresenceClient {
         Self {
             client: None,
             client_id: String::new(),
-            active_since: None,
             app_started_at: now_unix(),
         }
     }
@@ -48,10 +52,10 @@ impl PresenceClient {
         settings: &Settings,
         detection: &ClipStudioDetection,
         procrastination_percent: Option<u8>,
+        timing: PresenceTiming,
         shared_screenshot_url: Option<&str>,
     ) -> PresenceState {
         if !detection.running {
-            self.active_since = None;
             self.clear_activity();
             return PresenceState::default();
         }
@@ -75,14 +79,11 @@ impl PresenceClient {
             }
         }
 
-        if self.active_since.is_none() {
-            self.active_since = Some(now_unix());
-        }
-
         let activity = self.activity(
             settings,
             detection,
             procrastination_percent,
+            timing,
             shared_screenshot_url,
         );
 
@@ -126,6 +127,7 @@ impl PresenceClient {
         settings: &Settings,
         detection: &ClipStudioDetection,
         procrastination_percent: Option<u8>,
+        timing: PresenceTiming,
         shared_screenshot_url: Option<&str>,
     ) -> Value {
         let mut activity = Map::new();
@@ -180,7 +182,7 @@ impl PresenceClient {
             }
         }
 
-        if let Some(timestamps) = self.timestamps(settings, detection.focused) {
+        if let Some(timestamps) = self.timestamps(settings, detection.focused, timing) {
             activity.insert("timestamps".to_string(), timestamps);
         }
 
@@ -201,7 +203,12 @@ impl PresenceClient {
         Value::Object(activity)
     }
 
-    fn timestamps(&self, settings: &Settings, focused: bool) -> Option<Value> {
+    fn timestamps(
+        &self,
+        settings: &Settings,
+        focused: bool,
+        timing: PresenceTiming,
+    ) -> Option<Value> {
         if !settings.show_elapsed_time {
             return None;
         }
@@ -215,10 +222,13 @@ impl PresenceClient {
             }
             "custom" => custom_timestamps(settings),
             _ if focused => {
-                timestamps.insert("start".to_string(), json!(self.active_since?));
+                timestamps.insert("start".to_string(), json!(timing.drawing_started_at?));
                 Some(Value::Object(timestamps))
             }
-            _ => None,
+            _ => {
+                timestamps.insert("start".to_string(), json!(timing.procrastinating_since?));
+                Some(Value::Object(timestamps))
+            }
         }
     }
 }

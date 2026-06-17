@@ -347,7 +347,7 @@ function timestampPreviewText(focused) {
       }
       return "Custom timestamp";
     default:
-      return focused ? "Since Paint focus" : "Timestamp hidden while away";
+      return focused ? "Actual drawing time" : "Procrastinating since away";
   }
 }
 

@@ -1,4 +1,4 @@
-use crate::discord_presence::PresenceClient;
+use crate::discord_presence::{PresenceClient, PresenceTiming};
 use crate::{
     app_config::{
         DEFAULT_ACTIVITY_TYPE, DEFAULT_APPLY_SCREENSHOT_LUT,
@@ -162,6 +162,7 @@ struct FocusStats {
     focused_seconds: u64,
     idle_seconds: u64,
     last_sample_unix: u64,
+    idle_since_unix: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -211,6 +212,7 @@ impl AppState {
                     focused_seconds: 0,
                     idle_seconds: 0,
                     last_sample_unix: loaded_at,
+                    idle_since_unix: None,
                 },
                 auto_capture: AutoCaptureState::default(),
                 last_document_title: None,
@@ -280,7 +282,7 @@ impl AppState {
                 };
 
                 let mut detection = detect_clip_studio();
-                let procrastination_percent = {
+                let (procrastination_percent, presence_timing) = {
                     let mut inner = state.inner.lock().expect("app state lock poisoned");
                     if !detection.running {
                         inner.last_document_title = None;
@@ -290,12 +292,16 @@ impl AppState {
                         detection.document_title = inner.last_document_title.clone();
                     }
                     inner.focus_stats.update(&detection);
-                    inner.focus_stats.procrastination_percent()
+                    (
+                        inner.focus_stats.procrastination_percent(),
+                        inner.focus_stats.presence_timing(&detection),
+                    )
                 };
                 let presence_state = presence.sync(
                     &settings,
                     &detection,
                     procrastination_percent,
+                    presence_timing,
                     shared_screenshot_url.as_deref(),
                 );
 
@@ -399,15 +405,30 @@ impl FocusStats {
         let elapsed = now.saturating_sub(self.last_sample_unix);
         self.last_sample_unix = now;
 
-        if !detection.running || elapsed == 0 {
+        if !detection.running {
+            self.reset();
+            return;
+        }
+
+        if elapsed == 0 {
             return;
         }
 
         if detection.focused {
             self.focused_seconds = self.focused_seconds.saturating_add(elapsed);
+            self.idle_since_unix = None;
         } else {
             self.idle_seconds = self.idle_seconds.saturating_add(elapsed);
+            if self.idle_since_unix.is_none() {
+                self.idle_since_unix = Some(now.saturating_sub(elapsed));
+            }
         }
+    }
+
+    fn reset(&mut self) {
+        self.focused_seconds = 0;
+        self.idle_seconds = 0;
+        self.idle_since_unix = None;
     }
 
     fn procrastination_percent(&self) -> Option<u8> {
@@ -417,6 +438,25 @@ impl FocusStats {
         }
 
         Some(((self.idle_seconds.saturating_mul(100) + total / 2) / total).min(100) as u8)
+    }
+
+    fn presence_timing(&self, detection: &ClipStudioDetection) -> PresenceTiming {
+        if !detection.running {
+            return PresenceTiming::default();
+        }
+
+        if detection.focused {
+            let now = now_unix();
+            return PresenceTiming {
+                drawing_started_at: Some(now.saturating_sub(self.focused_seconds) as i64),
+                procrastinating_since: None,
+            };
+        }
+
+        PresenceTiming {
+            drawing_started_at: None,
+            procrastinating_since: self.idle_since_unix.map(|timestamp| timestamp as i64),
+        }
     }
 }
 
